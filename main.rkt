@@ -25,13 +25,9 @@
                         (and (list? thing) (list? (cadr thing))
                              (andmap symbol? (cadr thing))))
         "Final states must be a list of symbols"))
-    
   (syntax-parse stx
     [(_ name:id start:start transitions:trans finals:fin)
-     #'(define name (λ (input)
-                      (push-down (list start (map (λ (x) (apply generate-trans x)) transitions)
-                                       finals)
-                                 input)))]))
+     #'(define name (pda start transitions finals))]))
 
 ;; Returns a pda given its start state, transitions, and final states
 ;; Symbol [List-of [List-of Symbol]] [List-of Symbol] -> ([List-of Symbol] -> Boolean)
@@ -165,16 +161,16 @@
 
 (module+ test
 
-  (check-true
+  (test-true
    "Constructs a trivial PDA"
    (pda? (build-pda 'A (list) (list))))
 
-  (check-true
+  (test-true
    "Constructs a trivial PDA with a final state"
    (pda? (build-pda 'A (list) (list 'A))))
 
   
-  (check-true
+  (test-true
    "Format for constructing PDAs"
    (pda?
     (build-pda 'StartState
@@ -182,23 +178,21 @@
                 (list 'FromState 'read 'pop 'push 'ToState))
                (list 'FinalState))))
 
-  (check-exn 
+  (test-exn 
    "We fail to construct a PDA when the same state is listed twice as a final state"
-   (check-exn
-    exn:fail:contract:divide-by-zero? ;; wrong contract atm, but a start
-    (lambda ()
-      (build-pda 'A (list) (list 'A 'A)))))
-
+   exn:fail:contract? 
+   (lambda ()
+     (build-pda 'A (list) (list 'A 'A))))
   
-  (check-exn 
+  (test-exn 
    "We fail to construct a PDA when the same transition is listed twice"
-   (check-exn
-    exn:fail:contract:divide-by-zero? ;; wrong contract atm, but a start
-    (lambda ()
-      (build-pda 'StartState
-           (list
-            (list 'FromState 'read 'pop 'push 'ToState))
-           (list 'FinalState)))))
+   exn:fail:contract? 
+   (lambda ()
+     (build-pda 'StartState
+                (list
+                 (list 'FromState 'read 'pop 'push 'ToState)
+                 (list 'FromState 'read 'pop 'push 'ToState))
+                (list 'FinalState))))
 
 
   )

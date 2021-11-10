@@ -1,6 +1,7 @@
 #lang racket
-(provide define-pda pda epsilon)
-(require (for-syntax syntax/parse))
+(provide define-pda build-pda epsilon)
+(require (for-syntax syntax/parse)
+         rackunit)
 
 ;; Macro for defining pda's to a name
 (define-syntax (define-pda stx)
@@ -34,7 +35,7 @@
 
 ;; Returns a pda given its start state, transitions, and final states
 ;; Symbol [List-of [List-of Symbol]] [List-of Symbol] -> ([List-of Symbol] -> Boolean)
-(define (pda start transitions finals)
+(define (build-pda start transitions finals)
   (cond [(not (symbol? start))
          (raise-argument-error 'pda "symbol?" 0 start)]
         [(not (and (list? transitions) (andmap (λ (x) (and (list? x) (= 5 (length x))
@@ -43,11 +44,20 @@
          (raise-argument-error 'pda "list of 5 symbol lists?" 1 transitions)]
         [(not (and (list? finals) (andmap symbol? finals)))
          (raise-argument-error 'pda "list of symbols?" 2 finals)]
-        [else 
-         (λ (input) (push-down
-                     (list start (map (λ (x) (apply generate-trans x))
-                                      transitions) finals)
-                     input))]))
+        [else
+         (pda start transitions finals)]))
+
+(struct pda (start transitions finals) #:transparent)
+
+(define (run-pda p)
+  (match-define (pda start transitions finals) p)
+  (λ (input)
+    (push-down
+     (list start
+           (map (λ (x) (apply generate-trans x))
+                transitions)
+           finals)
+     input)))
 
 ;; Run the pda on the given input. Input can be formatted as a string or [List-of Symbol]
 (define (push-down pda-des input)
@@ -152,3 +162,43 @@
 
 ;; Self-explanatory
 (define epsilon 'ɛ)
+
+(module+ test
+
+  (check-true
+   "Constructs a trivial PDA"
+   (pda? (build-pda 'A (list) (list))))
+
+  (check-true
+   "Constructs a trivial PDA with a final state"
+   (pda? (build-pda 'A (list) (list 'A))))
+
+  
+  (check-true
+   "Format for constructing PDAs"
+   (pda?
+    (build-pda 'StartState
+               (list
+                (list 'FromState 'read 'pop 'push 'ToState))
+               (list 'FinalState))))
+
+  (check-exn 
+   "We fail to construct a PDA when the same state is listed twice as a final state"
+   (check-exn
+    exn:fail:contract:divide-by-zero? ;; wrong contract atm, but a start
+    (lambda ()
+      (build-pda 'A (list) (list 'A 'A)))))
+
+  
+  (check-exn 
+   "We fail to construct a PDA when the same transition is listed twice"
+   (check-exn
+    exn:fail:contract:divide-by-zero? ;; wrong contract atm, but a start
+    (lambda ()
+      (build-pda 'StartState
+           (list
+            (list 'FromState 'read 'pop 'push 'ToState))
+           (list 'FinalState)))))
+
+
+  )
